@@ -41,6 +41,61 @@ detect_ext4_encrypt_feature() {
     fi
 }
 
+package_is_installed() {
+    local package_name="$1"
+
+    dpkg-query -W \
+        -f='${db:Status-Status}' \
+        "${package_name}" 2>/dev/null |
+        grep -qx 'installed'
+}
+
+detect_fscrypt_packages() {
+    if package_is_installed fscrypt; then
+        FSCRYPT_INSTALLED=1
+        log_success "Package installed: fscrypt"
+    else
+        FSCRYPT_INSTALLED=0
+        log_warn "Package missing: fscrypt"
+    fi
+
+    if package_is_installed libpam-fscrypt; then
+        PAM_FSCRYPT_INSTALLED=1
+        log_success "Package installed: libpam-fscrypt"
+    else
+        PAM_FSCRYPT_INSTALLED=0
+        log_warn "Package missing: libpam-fscrypt"
+    fi
+}
+
+detect_pam_fscrypt() {
+    local missing=0
+    local pam_file
+
+    local pam_files=(
+        /etc/pam.d/common-auth
+        /etc/pam.d/common-session
+        /etc/pam.d/common-password
+    )
+
+    for pam_file in "${pam_files[@]}"; do
+        if [[ ! -r "${pam_file}" ]] ||
+            ! grep -q 'pam_fscrypt\.so' "${pam_file}"; then
+            log_warn "pam_fscrypt is not configured in ${pam_file}."
+            missing=1
+        else
+            log_debug "pam_fscrypt found in ${pam_file}."
+        fi
+    done
+
+    if [[ "${missing}" -eq 0 ]]; then
+        PAM_FSCRYPT_CONFIGURED=1
+        log_success "PAM fscrypt integration is configured."
+    else
+        PAM_FSCRYPT_CONFIGURED=0
+    fi
+}
+
 home_is_encrypted() {
     command -v fscrypt >/dev/null 2>&1 || return 1
 

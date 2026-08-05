@@ -29,6 +29,9 @@ source "${SCRIPT_DIR}/lib/users.sh"
 # shellcheck source=lib/fscrypt.sh
 source "${SCRIPT_DIR}/lib/fscrypt.sh"
 
+# shellcheck source=lib/ui.sh
+source "${SCRIPT_DIR}/lib/ui.sh"
+
 show_help() {
     cat <<EOF
 Usage:
@@ -110,32 +113,65 @@ parse_args() {
     done
 }
 
-main() {
-    parse_args "$@"
-    init_colors
+run_preflight() {
+    log_info "Starting phase: preflight"
 
     require_root
-
-    init_logging
-    log_info "${PROGRAM_NAME} ${PROGRAM_VERSION} starting."
-
     check_debian
     check_debian_version
     detect_execution_context
     check_required_commands
     resolve_target_user
+
+    log_success "Preflight phase completed."
+}
+
+run_readiness() {
+    log_info "Starting phase: readiness"
+
     detect_target_filesystem
     detect_ext4_encrypt_feature
+    detect_fscrypt_packages
+    detect_pam_fscrypt
     detect_home_state
     report_home_state
     determine_encryption_eligibility
+    handle_unavailable_encryption
+    print_readiness_summary
+    log_success "Readiness phase completed."
+}
 
-    log_debug "Dry run: ${DRY_RUN}"
-    log_debug "Target user: ${TARGET_USER:-not selected}"
-    log_debug "Skip encryption: ${SKIP_ENCRYPTION}"
-    log_debug "Skip GitHub: ${SKIP_GITHUB}"
+run_provisioning() {
+    log_info "Starting phase: provisioning"
 
-    log_success "Preflight checks completed successfully."
+    if [[ "${DRY_RUN}" -eq 1 ]]; then
+        log_info "Dry-run mode enabled. No provisioning changes will be made."
+        return 0
+    fi
+
+    log_warn "Provisioning has not been implemented yet."
+}
+
+run_validation() {
+    log_info "Starting phase: validation"
+
+    log_success "Validation phase completed."
+}
+
+main() {
+    parse_args "$@"
+    init_colors
+    print_header
+    init_logging
+
+    log_info "${PROGRAM_NAME} ${PROGRAM_VERSION} starting."
+
+    run_preflight
+    run_readiness
+    run_provisioning
+    run_validation
+
+    log_success "${PROGRAM_NAME} completed."
 }
 
 main "$@"
