@@ -1,0 +1,141 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+readonly PROGRAM_NAME="debian-bootstrap-launcher"
+readonly PROGRAM_VERSION="0.1.0"
+
+DRY_RUN=0
+VERBOSE=0
+USE_COLOR=1
+TARGET_USER=""
+SKIP_ENCRYPTION=0
+SKIP_GITHUB=0
+
+readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
+# shellcheck source=lib/colors.sh
+source "${SCRIPT_DIR}/lib/colors.sh"
+
+# shellcheck source=lib/logging.sh
+source "${SCRIPT_DIR}/lib/logging.sh"
+
+# shellcheck source=lib/checks.sh
+source "${SCRIPT_DIR}/lib/checks.sh"
+
+# shellcheck source=lib/users.sh
+source "${SCRIPT_DIR}/lib/users.sh"
+
+# shellcheck source=lib/fscrypt.sh
+source "${SCRIPT_DIR}/lib/fscrypt.sh"
+
+show_help() {
+    cat <<EOF
+Usage:
+  sudo ./${PROGRAM_NAME} [OPTIONS]
+
+Prepare a Debian 13 system for the private DebianBootstrap workflow.
+
+Options:
+  --help                  Show this help message
+  --version               Show the launcher version
+  --dry-run               Report planned actions without making changes
+  --verbose               Enable verbose output
+  --no-color              Disable colored terminal output
+  --target-user USERNAME  Select the permanent user
+  --skip-encryption       Skip the fscrypt workflow
+  --skip-github           Skip GitHub SSH setup and repository cloning
+
+Examples:
+  sudo ./${PROGRAM_NAME}
+  sudo ./${PROGRAM_NAME} --target-user smcenroe
+  sudo ./${PROGRAM_NAME} --dry-run --verbose
+EOF
+}
+
+show_version() {
+    printf '%s %s\n' "${PROGRAM_NAME}" "${PROGRAM_VERSION}"
+}
+
+parse_args() {
+    while [[ "$#" -gt 0 ]]; do
+        case "$1" in
+            --help|-h)
+                show_help
+                exit 0
+                ;;
+            --version|-V)
+                show_version
+                exit 0
+                ;;
+            --dry-run)
+                DRY_RUN=1
+                shift
+                ;;
+            --verbose)
+                VERBOSE=1
+                shift
+                ;;
+            --no-color)
+                USE_COLOR=0
+                shift
+                ;;
+            --target-user)
+                if [[ -z "${2:-}" ]]; then
+                    printf 'Missing username after --target-user\n' >&2
+                    exit 2
+                fi
+
+                TARGET_USER="$2"
+                shift 2
+                ;;
+            --skip-encryption)
+                SKIP_ENCRYPTION=1
+                shift
+                ;;
+            --skip-github)
+                SKIP_GITHUB=1
+                shift
+                ;;
+            --)
+                shift
+                break
+                ;;
+            *)
+                printf 'Unknown option: %s\n\n' "$1" >&2
+                show_help >&2
+                exit 2
+                ;;
+        esac
+    done
+}
+
+main() {
+    parse_args "$@"
+    init_colors
+
+    require_root
+
+    init_logging
+    log_info "${PROGRAM_NAME} ${PROGRAM_VERSION} starting."
+
+    check_debian
+    check_debian_version
+    detect_execution_context
+    check_required_commands
+    resolve_target_user
+    detect_target_filesystem
+    detect_ext4_encrypt_feature
+    detect_home_state
+    report_home_state
+    determine_encryption_eligibility
+
+    log_debug "Dry run: ${DRY_RUN}"
+    log_debug "Target user: ${TARGET_USER:-not selected}"
+    log_debug "Skip encryption: ${SKIP_ENCRYPTION}"
+    log_debug "Skip GitHub: ${SKIP_GITHUB}"
+
+    log_success "Preflight checks completed successfully."
+}
+
+main "$@"
