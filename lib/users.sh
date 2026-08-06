@@ -54,8 +54,8 @@ prompt_for_target_user() {
 
         if user_exists "${username}"; then
             if [[ "${ALLOW_EXISTING_USERS:-false}" != "true" ]]; then
-                log_error "User already exists and existing users are disabled by policy."
-                continue
+                log_warn "Existing user detected: ${username}"
+                log_info "The launcher will evaluate the user's home and fscrypt state before continuing."
             fi
         fi
 
