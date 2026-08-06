@@ -32,6 +32,12 @@ source "${SCRIPT_DIR}/lib/fscrypt.sh"
 # shellcheck source=lib/ui.sh
 source "${SCRIPT_DIR}/lib/ui.sh"
 
+# shellcheck source=lib/tasks.sh
+source "${SCRIPT_DIR}/lib/tasks.sh"
+
+# shellcheck source=lib/github.sh
+source "${SCRIPT_DIR}/lib/github.sh"
+
 show_help() {
     cat <<EOF
 Usage:
@@ -141,15 +147,13 @@ run_readiness() {
     log_success "Readiness phase completed."
 }
 
-run_provisioning() {
-    log_info "Starting phase: provisioning"
+run_execution() {
+    log_info "Starting phase: execution"
 
-    if [[ "${DRY_RUN}" -eq 1 ]]; then
-        log_info "Dry-run mode enabled. No provisioning changes will be made."
-        return 0
-    fi
-
-    log_warn "Provisioning has not been implemented yet."
+    github_tasks_register
+    run_registered_tasks
+    print_task_summary
+    log_success "Execution phase completed."
 }
 
 run_validation() {
@@ -168,7 +172,7 @@ main() {
 
     run_preflight
     run_readiness
-    run_provisioning
+    run_execution
     run_validation
 
     log_success "${PROGRAM_NAME} completed."
