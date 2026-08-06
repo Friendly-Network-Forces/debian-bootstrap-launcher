@@ -105,10 +105,13 @@ detect_pam_fscrypt() {
 }
 
 home_is_encrypted() {
+    local output
+
     command -v fscrypt >/dev/null 2>&1 || return 1
 
-    fscrypt status "${TARGET_HOME}" 2>/dev/null |
-        grep -q 'is encrypted with fscrypt'
+    output="$(fscrypt status "${TARGET_HOME}" 2>/dev/null || true)"
+
+    grep -q 'is encrypted with fscrypt' <<< "${output}"
 }
 
 home_is_empty() {
