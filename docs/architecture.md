@@ -95,7 +95,6 @@ This account is used to:
 - Clone the public launcher.
 - Run the launcher with root privileges.
 - Prepare the permanent user's encrypted home directory.
-- Transfer or install the permanent user's GitHub SSH key.
 - Clone the private DebianBootstrap repository.
 - Verify the permanent user's login.
 
