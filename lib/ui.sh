@@ -123,3 +123,36 @@ handle_unavailable_encryption() {
             ;;
     esac
 }
+
+print_completion_screen() {
+    print_rule "="
+    printf ' Debian Bootstrap Launcher Complete\n'
+    print_rule "="
+    printf '\n'
+
+    print_key_value "Permanent user" "${TARGET_USER}"
+    print_key_value "Home directory" "${TARGET_HOME}"
+    print_key_value "Filesystem" "${TARGET_FSTYPE}"
+    print_key_value "Encryption" "Configured"
+
+    printf '\n'
+    log_success "The permanent user's home directory is encrypted."
+    log_success "PAM integration is configured."
+    log_success "The login protector is present."
+    log_success "The recovery protector is present."
+
+    printf '\n'
+    printf 'Next steps:\n'
+    printf '\n'
+    printf '  1. Log out of the temporary administrator account.\n'
+    printf '  2. Log in locally as %s.\n' "${TARGET_USER}"
+    printf '  3. Confirm the desktop and home directory open normally.\n'
+    printf '  4. Copy your SSH key into the encrypted home directory.\n'
+    printf '  5. Clone DebianBootstrap and run its installer.\n'
+    printf '\n'
+
+    log_warn "Do not remove the temporary administrator until the new login is verified."
+
+    printf '\n'
+    print_rule "="
+}

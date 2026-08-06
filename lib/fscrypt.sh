@@ -399,6 +399,119 @@ target_home_encrypt_task_enabled() {
 }
 
 #
+# Configure PAM fscrypt integration
+#
+
+pam_fscrypt_check() {
+    local pam_file
+
+    local pam_files=(
+        /etc/pam.d/common-auth
+        /etc/pam.d/common-session
+        /etc/pam.d/common-password
+    )
+
+    for pam_file in "${pam_files[@]}"; do
+        [[ -r "${pam_file}" ]] || return 1
+        grep -q 'pam_fscrypt\.so' "${pam_file}" || return 1
+    done
+
+    return 0
+}
+
+pam_fscrypt_plan() {
+    log_info "Plan: configure PAM integration for fscrypt."
+}
+
+pam_fscrypt_run() {
+    if ! package_is_installed libpam-fscrypt; then
+        log_error "Cannot configure PAM because libpam-fscrypt is not installed."
+        return 1
+    fi
+
+    if command -v pam-auth-update >/dev/null 2>&1; then
+        DEBIAN_FRONTEND=noninteractive pam-auth-update --package
+    fi
+
+    if pam_fscrypt_check; then
+        return 0
+    fi
+
+    log_error "libpam-fscrypt was installed, but PAM integration was not configured."
+    return 1
+}
+
+pam_fscrypt_verify() {
+    pam_fscrypt_check
+}
+
+pam_fscrypt_task_enabled() {
+    fscrypt_setup_task_enabled
+}
+
+#
+# Create Recovery Protector
+#
+
+recovery_protector_check() {
+    fscrypt status "${TARGET_HOME}" 2>/dev/null |
+        grep -q 'custom protector "Recovery"'
+}
+
+recovery_protector_plan() {
+    log_info "Plan: create and attach a custom recovery protector."
+}
+
+recovery_protector_run() {
+    local protector_id
+    local policy_id
+
+    if ! home_is_encrypted; then
+        log_error "Cannot create a recovery protector because ${TARGET_HOME} is not encrypted."
+        return 1
+    fi
+
+    fscrypt metadata create protector \
+        --source=custom_passphrase \
+        "${TARGET_MOUNTPOINT}" \
+        --name="Recovery"
+
+    protector_id="$(
+        fscrypt status "${TARGET_MOUNTPOINT}" |
+            awk '
+                /custom protector "Recovery"/ {
+                    print $1
+                    exit
+                }
+            '
+    )"
+
+    policy_id="$(
+        fscrypt status "${TARGET_HOME}" |
+            awk '/^Policy:/ {print $2; exit}'
+    )"
+
+    if [[ -z "${protector_id}" || -z "${policy_id}" ]]; then
+        log_error "Unable to determine recovery protector or policy ID."
+        return 1
+    fi
+
+    fscrypt metadata add-protector-to-policy \
+        --protector="${TARGET_MOUNTPOINT}:${protector_id}" \
+        --policy="${TARGET_MOUNTPOINT}:${policy_id}"
+}
+
+recovery_protector_verify() {
+    recovery_protector_check
+}
+
+recovery_protector_task_enabled() {
+    [[ "${SKIP_ENCRYPTION}" -eq 0 ]] || return 1
+    home_is_encrypted || return 1
+    ! recovery_protector_check
+}
+
+#
 # Task registration
 #
 
@@ -412,6 +525,16 @@ fscrypt_tasks_register() {
         fscrypt_packages_run \
         fscrypt_packages_verify \
         fscrypt_task_enabled
+
+    register_task \
+        "configure_pam_fscrypt" \
+        "Configure PAM fscrypt integration" \
+        "Encryption" \
+        pam_fscrypt_check \
+        pam_fscrypt_plan \
+        pam_fscrypt_run \
+        pam_fscrypt_verify \
+        pam_fscrypt_task_enabled
 
     register_task \
         "initialize_fscrypt_metadata" \
@@ -442,4 +565,14 @@ fscrypt_tasks_register() {
         target_home_encrypt_run \
         target_home_encrypt_verify \
         target_home_encrypt_task_enabled
+
+    register_task \
+        "create_recovery_protector" \
+        "Create recovery protector" \
+        "Encryption" \
+        recovery_protector_check \
+        recovery_protector_plan \
+        recovery_protector_run \
+        recovery_protector_verify \
+        recovery_protector_task_enabled
 }

@@ -167,6 +167,33 @@ run_validation() {
     log_success "Validation phase completed."
 }
 
+run_completion() {
+    log_info "Starting phase: completion"
+
+    if [[ "${DRY_RUN}" -eq 1 ]]; then
+        log_info "Dry-run mode: completion screen suppressed."
+        return 0
+    fi
+
+    if ! home_is_encrypted; then
+        log_error "Completion refused: ${TARGET_HOME} is not encrypted."
+        return 1
+    fi
+
+    if ! pam_fscrypt_check; then
+        log_error "Completion refused: PAM fscrypt integration is not configured."
+        return 1
+    fi
+
+    if ! recovery_protector_check; then
+        log_error "Completion refused: recovery protector is missing."
+        return 1
+    fi
+
+    print_completion_screen
+    log_success "Completion phase finished."
+}
+
 main() {
     parse_args "$@"
     init_colors
@@ -179,6 +206,7 @@ main() {
     run_readiness
     run_execution
     run_validation
+    run_completion
 
     log_success "${PROGRAM_NAME} completed."
 }
