@@ -136,7 +136,7 @@ target_user_plan() {
 
 target_user_run() {
     local useradd_args=(
-        --create-home
+        --no-create-home
         --shell /bin/bash
     )
 
@@ -152,18 +152,12 @@ target_user_run() {
 
     useradd "${useradd_args[@]}" "${TARGET_USER}"
 
-    chmod "${HOME_MODE:-0700}" "${TARGET_HOME}"
-    chown "${TARGET_USER}:${TARGET_USER}" "${TARGET_HOME}"
-
     printf '\nSet the login password for %s.\n' "${TARGET_USER}"
     passwd "${TARGET_USER}"
 }
 
 target_user_verify() {
-    user_exists "${TARGET_USER}" &&
-        [[ -d "${TARGET_HOME}" ]] &&
-        [[ "$(stat -c '%U' "${TARGET_HOME}")" == "${TARGET_USER}" ]] &&
-        [[ "$(stat -c '%G' "${TARGET_HOME}")" == "${TARGET_USER}" ]]
+    user_exists "${TARGET_USER}"
 }
 
 target_user_task_enabled() {
