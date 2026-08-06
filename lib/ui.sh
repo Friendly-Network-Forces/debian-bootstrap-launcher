@@ -90,7 +90,9 @@ print_readiness_summary() {
         print_key_value "PAM integration" "Not configured"
     fi
 
-    if [[ "${ENCRYPTION_ELIGIBLE}" -eq 1 ]]; then
+    if [[ "${HOME_STATE}" == "ENCRYPTED" ]]; then
+        print_key_value "Encryption" "Already configured"
+    elif [[ "${ENCRYPTION_ELIGIBLE}" -eq 1 ]]; then
         print_key_value "Encryption" "Eligible"
     else
         print_key_value "Encryption" "Not eligible"
