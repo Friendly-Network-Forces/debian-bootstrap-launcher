@@ -221,15 +221,6 @@ detect_encryption_state() {
     FILESYSTEM_POLICY_COUNT=0
     POLICY_ORPHANED=0
 
-    FILESYSTEM_POLICY_COUNT="$(get_filesystem_policy_count)"
-
-    if [[ "${FILESYSTEM_POLICY_COUNT}" -gt 0 &&
-        "${HOME_ENCRYPTED}" -eq 0 &&
-        "${LOGIN_PROTECTOR_EXISTS}" -eq 0 &&
-        "${RECOVERY_PROTECTOR_EXISTS}" -eq 0 ]]; then
-      POLICY_ORPHANED=1
-    fi
-
     if [[ -e "${TARGET_HOME}" ]]; then
         HOME_EXISTS=1
     fi
@@ -252,6 +243,15 @@ detect_encryption_state() {
 
     if [[ -n "$(get_target_policy_id)" ]]; then
         POLICY_EXISTS=1
+    fi
+
+    FILESYSTEM_POLICY_COUNT="$(get_filesystem_policy_count)"
+
+    if [[ "${FILESYSTEM_POLICY_COUNT}" -gt 0 &&
+          "${HOME_ENCRYPTED}" -eq 0 &&
+          "${LOGIN_PROTECTOR_EXISTS}" -eq 0 &&
+          "${RECOVERY_PROTECTOR_EXISTS}" -eq 0 ]]; then
+      POLICY_ORPHANED=1
     fi
 
     log_debug "Encryption state:"

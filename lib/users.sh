@@ -19,6 +19,14 @@ get_user_home() {
     getent passwd "${username}" | awk -F: '{print $6}'
 }
 
+get_user_full_name() {
+    local username="$1"
+
+    getent passwd "${username}" |
+        awk -F: '{print $5}' |
+        cut -d',' -f1
+}
+
 validate_username() {
     local username="$1"
 
@@ -62,7 +70,17 @@ prompt_for_target_user() {
         break
     done
 
-    read -r -p "Full name: " full_name
+    if user_exists "${username}"; then
+        full_name="$(get_user_full_name "${username}")"
+
+        if [[ -n "${full_name}" ]]; then
+            log_info "Existing full name: ${full_name}"
+        else
+            log_info "Existing user has no full name configured."
+        fi
+    else
+        read -r -p "Full name: " full_name
+    fi
 
     TARGET_USER="${username}"
     TARGET_FULL_NAME="${full_name}"
