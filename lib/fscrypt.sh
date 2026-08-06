@@ -245,15 +245,6 @@ detect_encryption_state() {
         POLICY_EXISTS=1
     fi
 
-    FILESYSTEM_POLICY_COUNT="$(get_filesystem_policy_count)"
-
-    if [[ "${FILESYSTEM_POLICY_COUNT}" -gt 0 &&
-          "${HOME_ENCRYPTED}" -eq 0 &&
-          "${LOGIN_PROTECTOR_EXISTS}" -eq 0 &&
-          "${RECOVERY_PROTECTOR_EXISTS}" -eq 0 ]]; then
-      POLICY_ORPHANED=1
-    fi
-
     log_debug "Encryption state:"
     log_debug "  HOME_EXISTS=${HOME_EXISTS}"
     log_debug "  HOME_ENCRYPTED=${HOME_ENCRYPTED}"
@@ -266,19 +257,6 @@ detect_encryption_state() {
 }
 
 enforce_consistent_encryption_state() {
-    if [[ "${POLICY_ORPHANED}" -eq 1 ]]; then
-        log_error "Orphaned fscrypt policy metadata detected on ${TARGET_MOUNTPOINT}."
-        printf '\n'
-        printf 'The filesystem contains fscrypt policy metadata, but no matching\n'
-        printf 'login or recovery protector is available for %s.\n' "${TARGET_USER}"
-        printf '\n'
-        printf 'The launcher will not continue automatically.\n'
-        printf '\n'
-        printf 'Filesystem policy count: %s\n' "${FILESYSTEM_POLICY_COUNT}"
-        printf '\n'
-        return 1
-    fi
-
     if [[ "${LOGIN_PROTECTOR_EXISTS}" -eq 1 &&
           "${HOME_ENCRYPTED}" -eq 0 ]]; then
         log_error "Inconsistent fscrypt state detected for ${TARGET_USER}."
