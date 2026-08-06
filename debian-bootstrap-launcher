@@ -150,7 +150,8 @@ run_readiness() {
 run_execution() {
     log_info "Starting phase: execution"
 
-    github_tasks_register
+    fscrypt_tasks_register
+    # github_tasks_register
     run_registered_tasks
     print_task_summary
     log_success "Execution phase completed."
