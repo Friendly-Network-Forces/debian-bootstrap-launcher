@@ -141,6 +141,8 @@ run_readiness() {
     detect_fscrypt_packages
     detect_pam_fscrypt
     detect_home_state
+    detect_encryption_state
+    enforce_consistent_encryption_state
     report_home_state
     determine_encryption_eligibility
     enforce_encryption_readiness

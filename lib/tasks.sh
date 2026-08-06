@@ -131,6 +131,14 @@ run_registered_task() {
         return 1
     fi
 
+    if declare -F detect_home_state >/dev/null 2>&1; then
+        detect_home_state
+    fi
+
+    if declare -F detect_encryption_state >/dev/null 2>&1; then
+        detect_encryption_state
+    fi
+
     if ! "${verify_function}"; then
         TASK_RESULTS["${task_id}"]="FAILED"
         log_error "Task failed: ${task_name}. Reason: verification failed"

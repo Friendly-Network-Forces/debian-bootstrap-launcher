@@ -171,6 +171,83 @@ report_home_state() {
     esac
 }
 
+get_login_protector_id() {
+    fscrypt status "${TARGET_MOUNTPOINT}" 2>/dev/null |
+        awk -v user="${TARGET_USER}" '
+            $0 ~ "login protector for " user {
+                print $1
+                exit
+            }
+        '
+}
+
+get_target_policy_id() {
+    fscrypt status "${TARGET_HOME}" 2>/dev/null |
+        awk '/^Policy:/ {print $2; exit}'
+}
+
+login_protector_exists() {
+    [[ -n "$(get_login_protector_id)" ]]
+}
+
+detect_encryption_state() {
+    HOME_EXISTS=0
+    HOME_ENCRYPTED=0
+    HOME_EMPTY=0
+    LOGIN_PROTECTOR_EXISTS=0
+    RECOVERY_PROTECTOR_EXISTS=0
+    POLICY_EXISTS=0
+
+    if [[ -e "${TARGET_HOME}" ]]; then
+        HOME_EXISTS=1
+    fi
+
+    if [[ -d "${TARGET_HOME}" ]]; then
+        if home_is_encrypted; then
+            HOME_ENCRYPTED=1
+        elif home_is_empty; then
+            HOME_EMPTY=1
+        fi
+    fi
+
+    if login_protector_exists; then
+        LOGIN_PROTECTOR_EXISTS=1
+    fi
+
+    if recovery_protector_check; then
+        RECOVERY_PROTECTOR_EXISTS=1
+    fi
+
+    if [[ -n "$(get_target_policy_id)" ]]; then
+        POLICY_EXISTS=1
+    fi
+
+    log_debug "Encryption state:"
+    log_debug "  HOME_EXISTS=${HOME_EXISTS}"
+    log_debug "  HOME_ENCRYPTED=${HOME_ENCRYPTED}"
+    log_debug "  HOME_EMPTY=${HOME_EMPTY}"
+    log_debug "  LOGIN_PROTECTOR_EXISTS=${LOGIN_PROTECTOR_EXISTS}"
+    log_debug "  RECOVERY_PROTECTOR_EXISTS=${RECOVERY_PROTECTOR_EXISTS}"
+    log_debug "  POLICY_EXISTS=${POLICY_EXISTS}"
+}
+
+enforce_consistent_encryption_state() {
+    if [[ "${LOGIN_PROTECTOR_EXISTS}" -eq 1 &&
+          "${HOME_ENCRYPTED}" -eq 0 ]]; then
+        log_error "Inconsistent fscrypt state detected for ${TARGET_USER}."
+        printf '\n'
+        printf 'A login protector exists, but %s is not encrypted.\n' "${TARGET_HOME}"
+        printf 'The launcher will not continue automatically.\n'
+        printf '\n'
+        printf 'Protector ID: %s\n' "$(get_login_protector_id)"
+        printf '\n'
+        printf 'This usually means a previous run created fscrypt metadata,\n'
+        printf 'then the encrypted home directory was removed or replaced.\n'
+        printf '\n'
+        return 1
+    fi
+}
+
 determine_encryption_eligibility() {
     ENCRYPTION_ELIGIBLE=0
 
@@ -393,8 +470,12 @@ target_home_encrypt_task_enabled() {
     [[ "${ENCRYPTION_ELIGIBLE}" -eq 1 ]] || return 1
     [[ "${TARGET_FSTYPE}" == "ext4" ]] || return 1
     [[ "${EXT4_ENCRYPT_FEATURE}" == "enabled" ]] || return 1
-    [[ -d "${TARGET_HOME}" ]] || return 1
-    home_is_empty || return 1
+
+    [[ "${HOME_EXISTS}" -eq 1 ]] || return 1
+    [[ "${HOME_ENCRYPTED}" -eq 0 ]] || return 1
+    [[ "${HOME_EMPTY}" -eq 1 ]] || return 1
+    [[ "${LOGIN_PROTECTOR_EXISTS}" -eq 0 ]] || return 1
+
     fscrypt_metadata_check
 }
 
