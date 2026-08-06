@@ -186,6 +186,24 @@ get_target_policy_id() {
         awk '/^Policy:/ {print $2; exit}'
 }
 
+get_filesystem_policy_count() {
+    fscrypt status "${TARGET_MOUNTPOINT}" 2>/dev/null |
+        awk '
+            /^POLICY[[:space:]]/ {
+                in_policy_table=1
+                next
+            }
+
+            in_policy_table && /^[0-9a-f]{32}[[:space:]]/ {
+                count++
+            }
+
+            END {
+                print count + 0
+            }
+        '
+}
+
 login_protector_exists() {
     [[ -n "$(get_login_protector_id)" ]]
 }
@@ -197,6 +215,17 @@ detect_encryption_state() {
     LOGIN_PROTECTOR_EXISTS=0
     RECOVERY_PROTECTOR_EXISTS=0
     POLICY_EXISTS=0
+    FILESYSTEM_POLICY_COUNT=0
+    POLICY_ORPHANED=0
+
+    FILESYSTEM_POLICY_COUNT="$(get_filesystem_policy_count)"
+
+    if [[ "${FILESYSTEM_POLICY_COUNT}" -gt 0 &&
+        "${HOME_ENCRYPTED}" -eq 0 &&
+        "${LOGIN_PROTECTOR_EXISTS}" -eq 0 &&
+        "${RECOVERY_PROTECTOR_EXISTS}" -eq 0 ]]; then
+      POLICY_ORPHANED=1
+    fi
 
     if [[ -e "${TARGET_HOME}" ]]; then
         HOME_EXISTS=1
@@ -229,9 +258,24 @@ detect_encryption_state() {
     log_debug "  LOGIN_PROTECTOR_EXISTS=${LOGIN_PROTECTOR_EXISTS}"
     log_debug "  RECOVERY_PROTECTOR_EXISTS=${RECOVERY_PROTECTOR_EXISTS}"
     log_debug "  POLICY_EXISTS=${POLICY_EXISTS}"
+    log_debug "  FILESYSTEM_POLICY_COUNT=${FILESYSTEM_POLICY_COUNT}"
+    log_debug "  POLICY_ORPHANED=${POLICY_ORPHANED}"
 }
 
 enforce_consistent_encryption_state() {
+    if [[ "${POLICY_ORPHANED}" -eq 1 ]]; then
+        log_error "Orphaned fscrypt policy metadata detected on ${TARGET_MOUNTPOINT}."
+        printf '\n'
+        printf 'The filesystem contains fscrypt policy metadata, but no matching\n'
+        printf 'login or recovery protector is available for %s.\n' "${TARGET_USER}"
+        printf '\n'
+        printf 'The launcher will not continue automatically.\n'
+        printf '\n'
+        printf 'Filesystem policy count: %s\n' "${FILESYSTEM_POLICY_COUNT}"
+        printf '\n'
+        return 1
+    fi
+
     if [[ "${LOGIN_PROTECTOR_EXISTS}" -eq 1 &&
           "${HOME_ENCRYPTED}" -eq 0 ]]; then
         log_error "Inconsistent fscrypt state detected for ${TARGET_USER}."
