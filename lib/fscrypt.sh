@@ -506,9 +506,7 @@ recovery_protector_verify() {
 }
 
 recovery_protector_task_enabled() {
-    [[ "${SKIP_ENCRYPTION}" -eq 0 ]] || return 1
-    home_is_encrypted || return 1
-    ! recovery_protector_check
+    [[ "${SKIP_ENCRYPTION}" -eq 0 ]]
 }
 
 #
