@@ -34,6 +34,16 @@ source "${SCRIPT_DIR}/lib/ui.sh"
 # shellcheck source=lib/tasks.sh
 source "${SCRIPT_DIR}/lib/tasks.sh"
 
+CONFIG_FILE="${SCRIPT_DIR}/launcher.conf"
+
+if [[ -r "${CONFIG_FILE}" ]]; then
+    # shellcheck disable=SC1090
+    source "${CONFIG_FILE}"
+else
+    log_error "Missing launcher configuration: ${CONFIG_FILE}"
+    exit 1
+fi
+
 show_help() {
     cat <<EOF
 Usage:
@@ -133,6 +143,7 @@ run_readiness() {
     detect_home_state
     report_home_state
     determine_encryption_eligibility
+    enforce_encryption_readiness
     handle_unavailable_encryption
     print_readiness_summary
     log_success "Readiness phase completed."
@@ -141,9 +152,12 @@ run_readiness() {
 run_execution() {
     log_info "Starting phase: execution"
 
+    users_tasks_register
     fscrypt_tasks_register
+
     run_registered_tasks
     print_task_summary
+
     log_success "Execution phase completed."
 }
 

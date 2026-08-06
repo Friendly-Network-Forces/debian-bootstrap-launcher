@@ -3,11 +3,19 @@
 # fscrypt and filesystem detection for debian-bootstrap-launcher.
 
 detect_target_filesystem() {
-    TARGET_MOUNTPOINT="$(findmnt -no TARGET --target "${TARGET_HOME}")"
-    TARGET_DEVICE="$(findmnt -no SOURCE --target "${TARGET_HOME}")"
-    TARGET_FSTYPE="$(findmnt -no FSTYPE --target "${TARGET_HOME}")"
+    local probe_path="${TARGET_HOME}"
 
-    if [[ -z "${TARGET_MOUNTPOINT}" || -z "${TARGET_DEVICE}" || -z "${TARGET_FSTYPE}" ]]; then
+    if [[ ! -e "${probe_path}" ]]; then
+        probe_path="$(dirname "${TARGET_HOME}")"
+    fi
+
+    TARGET_MOUNTPOINT="$(findmnt -no TARGET --target "${probe_path}")"
+    TARGET_DEVICE="$(findmnt -no SOURCE --target "${probe_path}")"
+    TARGET_FSTYPE="$(findmnt -no FSTYPE --target "${probe_path}")"
+
+    if [[ -z "${TARGET_MOUNTPOINT}" ||
+          -z "${TARGET_DEVICE}" ||
+          -z "${TARGET_FSTYPE}" ]]; then
         log_error "Unable to determine filesystem details for ${TARGET_HOME}."
         return 1
     fi
@@ -197,6 +205,35 @@ determine_encryption_eligibility() {
             return 1
             ;;
     esac
+}
+
+enforce_encryption_readiness() {
+    if [[ "${SKIP_ENCRYPTION}" -eq 1 ]]; then
+        return 0
+    fi
+
+    if [[ "${TARGET_FSTYPE}" != "ext4" ]]; then
+        log_error "Unsupported filesystem: ${TARGET_FSTYPE}. RC1 supports ext4 only."
+        return 1
+    fi
+
+    if [[ "${EXT4_ENCRYPT_FEATURE}" != "enabled" ]]; then
+        printf '\n'
+        log_error "The ext4 encrypt feature is not enabled on ${TARGET_DEVICE}."
+        printf '\n'
+        printf 'Encryption cannot continue safely.\n'
+        printf '\n'
+        printf 'Boot from Debian live media and run:\n'
+        printf '\n'
+        printf '  sudo e2fsck -f %s\n' "${TARGET_DEVICE}"
+        printf '  sudo tune2fs -O encrypt %s\n' "${TARGET_DEVICE}"
+        printf '  sudo e2fsck -f %s\n' "${TARGET_DEVICE}"
+        printf '\n'
+        printf 'Then reboot into the installed system and run the launcher again.\n'
+        printf '\n'
+
+        return 1
+    fi
 }
 
 #
